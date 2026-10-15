@@ -22,6 +22,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+import os
+os.environ['PATH']=str(Path(sys.executable).parent)+os.pathsep+os.environ.get('PATH','')
 
 
 def psnr(prediction: np.ndarray, target: np.ndarray) -> float:

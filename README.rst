@@ -69,6 +69,15 @@ Explicit modifications to upstream
   toolkit, instead of upstream's torch2.0.1 requirement. CUDA imports and a deferred
   three-step renderer/backward smoke run gate production training.
 
+Current experiment (2026-10-15)
+------------------------------
+
+The active experiment now compares **RaDe-GS geometry initialization first**
+against **original SfM initialization second**, with one identical GLINT mask set.
+The previous GLINT-versus-Diffusion mask queue was stopped by user request.
+See INITIALIZATION_COMPARISON.rst for conversion details, fixed settings and commands.
+The earlier mask comparison below is retained as a separate, inactive protocol.
+
 Execution
 ---------
 

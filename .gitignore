@@ -3,6 +3,7 @@ __pycache__/
 .pytest_cache/
 runtime/
 outputs/
+runs/
 data/
 masks/
 *.log

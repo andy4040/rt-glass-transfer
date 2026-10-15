@@ -12,6 +12,9 @@ def run(command,log_name):
     with (RUNTIME/log_name).open('a') as log:
         result=subprocess.run([str(x) for x in command],stdout=log,stderr=subprocess.STDOUT,cwd=ROOT,env={**os.environ,'CUDA_HOME':'/usr/local/cuda-12.1','MAX_JOBS':'2','TORCH_CUDA_ARCH_LIST':'8.6','LD_LIBRARY_PATH':str(BASE/'optix-libs')})
     if result.returncode:raise RuntimeError(f'{log_name}: exit {result.returncode}; inspect log')
+def complete_model(out,step):
+    folder=out/'point_cloud'/f'iteration_{step}'
+    return all((folder/name).is_file() for name in ['point_cloud.ply','light_mlp.pt','dir_encoding.pt'])
 def main():
     # Single persistent queue; no dependent CUDA work before completion is proven.
     import fcntl
@@ -30,15 +33,26 @@ def main():
         out=ROOT/'outputs'/method;maskdir=ROOT/'masks'/method;data=ROOT/'data'/method
         if (out/'complete.json').exists():continue
         status('exporting_masks',method=method)
-        run([GP,ROOT/'scripts/export_masks.py','--method',method,'--glint-root',BASE/'GLINT','--train-root',BASE/'data/train','--checkpoint',cp,'--output',maskdir],f'{method}_masks.log')
+        if not (maskdir/'manifest.json').exists():
+            run([GP,ROOT/'scripts/export_masks.py','--method',method,'--glint-root',BASE/'GLINT','--train-root',BASE/'data/train','--checkpoint',cp,'--output',maskdir],f'{method}_masks.log')
+        manifest=json.loads((maskdir/'manifest.json').read_text())
+        assert manifest['method']==method and manifest['held_out_used'] is False
         status('preparing_dataset',method=method)
-        run([GP,ROOT/'scripts/prepare_data.py','--source',BASE/'data/2dgs_train','--masks',maskdir,'--output',data],f'{method}_prepare.log')
+        if not (data/'manifest.json').exists():
+            run([GP,ROOT/'scripts/prepare_data.py','--source',BASE/'data/2dgs_train','--masks',maskdir,'--output',data],f'{method}_prepare.log')
+        from prepare_data import validate_inputs
+        validate_inputs(data,maskdir)
         # Short isolated real renderer/backward validation, after GLINT completion.
         smoke=ROOT/'outputs'/f'{method}_smoke'
-        run([RP,ROOT/'scripts/train_rt.py','-s',data,'-m',smoke,'-r','1','--iterations','3','--init_until_iter','0','--norm_loss_from_iter','0','--save_iterations','3'],f'{method}_smoke.log')
+        if not (RUNTIME/f'{method}_smoke.complete').exists():
+            run([RP,ROOT/'scripts/train_rt.py','-s',data,'-m',smoke,'-r','1','--iterations','3','--init_until_iter','0','--norm_loss_from_iter','0','--save_iterations','3'],f'{method}_smoke.log')
+            (RUNTIME/f'{method}_smoke.complete').touch()
         status('training',method=method,target=CONFIG['iterations'])
         command=[RP,ROOT/'scripts/train_rt.py','-s',data,'-m',out,'-r','1','--iterations',CONFIG['iterations'],'--init_until_iter',CONFIG['init_until_iter'],'--norm_loss_from_iter',CONFIG['norm_loss_from_iter'],'--save_iterations',*CONFIG['save_iterations']]
-        run(command,f'{method}_train.log')
+        if not complete_model(out,CONFIG['iterations']):
+            if (out/'initial_sha256.txt').exists():
+                raise RuntimeError(f'{method}: partial training exists. Exact optimizer resume unsupported; preserve outputs and explicitly select a new attempt directory.')
+            run(command,f'{method}_train.log')
         if method=='diffusion':
             assert (out/'initial_sha256.txt').read_text()==(ROOT/'outputs/glint/initial_sha256.txt').read_text(),'Initial states differ; comparison invalid'
         status('evaluating',method=method)

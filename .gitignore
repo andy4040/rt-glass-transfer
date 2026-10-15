@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+.pytest_cache/
+runtime/
+outputs/
+data/
+masks/
+*.log
+*.pid
+*.pt
+*.pth
+*.ply
+*.splat
+installed_requirements.txt
+install.complete
+tests/metric_test_*/

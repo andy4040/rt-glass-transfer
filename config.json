@@ -1,0 +1,16 @@
+{
+  "methods": ["glint", "diffusion"],
+  "scene": "coffee_martini",
+  "frame": 0,
+  "held_out_camera": "cam00",
+  "resolution": [676, 507],
+  "iterations": 61000,
+  "init_until_iter": 1000,
+  "norm_loss_from_iter": 700,
+  "save_iterations": [5000, 10000, 15000, 20000, 30000, 40000, 50000, 61000],
+  "seed": 0,
+  "view_sequence_seed": 20261015,
+  "mask_validity": "All three mask losses exclude uncertain pixels, identically implemented for both methods",
+  "diffusion_mask": "Fixed material heuristic; not learned glass segmentation and not heuristic-free",
+  "scope": "Static same-time multiview N3DV adaptation; official RT representation and renderer, no local plane loss"
+}

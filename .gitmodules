@@ -1,0 +1,3 @@
+[submodule "vendor/RT-Splatting"]
+	path = vendor/RT-Splatting
+	url = https://github.com/sjj118/RT-Splatting.git

@@ -1,0 +1,2 @@
+# Shared runtime settings.
+allow_tf32: true

@@ -1,0 +1,8 @@
+{
+  "forward_matches_baseline": true,
+  "median_depth_xyz_gradient_max": 0.46818727254867554,
+  "median_normal_geometry_gradient_l1": 1.4034540057182312,
+  "expected_loss": 0.058955974876880646,
+  "median_loss": 0.09854195266962051,
+  "combined_loss": 0.08270756155252457
+}

@@ -1,0 +1,30 @@
+{
+  "upstream_repository": "https://github.com/youngju-na/GLINT",
+  "upstream_commit": "a20591b20ef3365c230e3c95f749e65c498c68c4",
+  "source_sha256": {
+    "glint/renderer.py": "be31b20c60c5683e83bc9326947119f786aa4a3387ab9cc58a55007d408f63db",
+    "glint/trainer.py": "66cddf41a578869961d364022590cac26960885c441519df9dffb1fd91fd89ee"
+  },
+  "change": "normal consistency: 0.4 expected-depth normal + 0.6 median-depth normal, Interface and direct Transmission",
+  "seed": 0,
+  "steps": 60000,
+  "interface_only_steps": 5000,
+  "transmission_start": 5000,
+  "reflection_start": 5000,
+  "interface_geometry_freeze": 40000,
+  "resume": null,
+  "train_views": 17,
+  "resolution": [
+    676,
+    507
+  ],
+  "scene": "coffee_martini",
+  "frame": 0,
+  "held_out": "cam00",
+  "gpu": "RTX 5090",
+  "torch": "2.7.1+cu128",
+  "cuda": "12.8",
+  "gsplat_commit": "83a0dcd3f850cccdc7b92b50fd6a568e3260eae1",
+  "tracer_commit": "ef6f24be9174eee037469f7e221cd72f6c0222cb",
+  "quality_results": "pending at publication"
+}

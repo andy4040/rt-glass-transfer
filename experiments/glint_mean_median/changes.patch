@@ -1,0 +1,79 @@
+diff --git a/glint/renderer.py b/glint/renderer.py
+index 798540e..212b8f5 100644
+--- a/glint/renderer.py
++++ b/glint/renderer.py
+@@ -270,6 +270,9 @@ def rasterize_glint_2dgs(
+     camtoworlds = torch.linalg.inv(viewmats)
+     surface_normal = _glint_depth_to_normal(surface_depth, camtoworlds, Ks)
+     surface_normal = surface_normal * render_alpha.detach()
++    # Independent normals: never mix depth maps before taking derivatives.
++    expected_normal = _glint_depth_to_normal(expected_depth, camtoworlds, Ks) * render_alpha.detach()
++    median_normal = _glint_depth_to_normal(median_depth, camtoworlds, Ks) * render_alpha.detach()
+ 
+     radii_render = meta["radii"][0].amax(dim=-1).to(dtype=means.dtype)
+     full_radii = torch.zeros(n_gaussians, dtype=means.dtype, device=means.device)
+@@ -293,6 +296,8 @@ def rasterize_glint_2dgs(
+         rend_dist=render_distortion[0].permute(2, 0, 1),
+         surf_depth=surface_depth[0].permute(2, 0, 1),
+         surf_normal=surface_normal[0].permute(2, 0, 1),
++        surf_normal_expected=expected_normal[0].permute(2, 0, 1),
++        surf_normal_median=median_normal[0].permute(2, 0, 1),
+         render_depth_expected=expected_depth[0].permute(2, 0, 1),
+         render_depth_median=median_depth[0].permute(2, 0, 1),
+         viewspace_points=viewspace_points,
+diff --git a/glint/trainer.py b/glint/trainer.py
+index dc2ad14..d86787a 100644
+--- a/glint/trainer.py
++++ b/glint/trainer.py
+@@ -45,6 +45,7 @@ class GlintLossConfig:
+     depth_prior_start: int = 0
+     depth_prior_stop: int | None = None
+     normal_consistency: float = 0.1
++    normal_consistency_median_weight: float = 0.6
+     normal_consistency_start: int = 0
+     normal_consistency_stop: int | None = None
+     normal_consistency_depth_weight: bool = True
+@@ -1413,6 +1414,13 @@ class GlintTrainer:
+             consistency = 1.0 - F.cosine_similarity(
+                 rendered_normal, surface_normal, dim=-1
+             )
++            mean_consistency = consistency
++            median_normal = output.interface.surf_normal_median.permute(1, 2, 0).unsqueeze(0)
++            median_consistency = 1.0 - F.cosine_similarity(rendered_normal, median_normal, dim=-1)
++            mix = config.normal_consistency_median_weight
++            if not 0.0 <= mix <= 1.0:
++                raise ValueError("normal_consistency_median_weight must be in [0,1]")
++            consistency = (1.0 - mix) * mean_consistency + mix * median_consistency
+             consistency_weight = torch.ones_like(consistency)
+             if config.normal_consistency_depth_weight:
+                 consistency_weight = _inverse_depth_weight(
+@@ -1423,6 +1431,8 @@ class GlintTrainer:
+             terms["normal_consistency"] = _weighted_mean(
+                 consistency, consistency_weight
+             )
++            diagnostics["normal_consistency_mean"] = _weighted_mean(mean_consistency, consistency_weight)
++            diagnostics["normal_consistency_median"] = _weighted_mean(median_consistency, consistency_weight)
+             if direct is not None:
+                 direct_rendered_normal = direct.rend_normal.permute(1, 2, 0).unsqueeze(
+                     0
+@@ -1431,6 +1441,10 @@ class GlintTrainer:
+                 direct_consistency = 1.0 - F.cosine_similarity(
+                     direct_rendered_normal, direct_surface_normal, dim=-1
+                 )
++                direct_mean_consistency = direct_consistency
++                direct_median_normal = direct.surf_normal_median.permute(1, 2, 0).unsqueeze(0)
++                direct_median_consistency = 1.0 - F.cosine_similarity(direct_rendered_normal, direct_median_normal, dim=-1)
++                direct_consistency = (1.0 - mix) * direct_mean_consistency + mix * direct_median_consistency
+                 direct_weight = torch.ones_like(direct_consistency)
+                 if config.normal_consistency_depth_weight:
+                     direct_weight = _inverse_depth_weight(
+@@ -1440,6 +1454,9 @@ class GlintTrainer:
+                     direct_consistency, direct_weight
+                 )
+ 
++                diagnostics["transmission_normal_consistency_mean"] = _weighted_mean(direct_mean_consistency, direct_weight)
++                diagnostics["transmission_normal_consistency_median"] = _weighted_mean(direct_median_consistency, direct_weight)
++
+         if step >= config.normal_smooth_start:
+             terms["normal_smooth"] = _edge_aware_smoothness(normal_world, target)
+ 

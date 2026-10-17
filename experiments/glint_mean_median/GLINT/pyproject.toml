@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "glint-gaussian"
+version = "0.1.0"
+description = "GLINT: Modeling Scene-Scale Transparency via Gaussian Radiance Transport"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+authors = [
+  {name = "Youngju Na"},
+  {name = "Jaeseong Yun"},
+  {name = "Soohyun Ryu"},
+  {name = "Hyunsu Kim"},
+  {name = "Sung-Eui Yoon"},
+  {name = "Suyong Yeon"},
+]
+dependencies = [
+  "torch>=2.7",
+  "torchvision>=0.22",
+  "gsplat @ git+https://github.com/youngju-na/gsplat.git@83a0dcd3f850cccdc7b92b50fd6a568e3260eae1",
+  "numpy>=2.0,<3.0",
+  "scipy",
+  "lpips==0.1.4",
+  "opencv-python",
+  "imageio",
+  "matplotlib",
+  "pyyaml",
+  "plyfile",
+]
+
+[project.optional-dependencies]
+geometry = ["open3d>=0.18", "scikit-learn>=1.4"]
+test = ["pytest>=8.0"]
+
+[project.scripts]
+glint-train = "glint.train:main"
+glint-evaluate = "glint.evaluate_dataset:main"
+glint-evaluate-geometry = "glint.evaluate_geometry:main"
+glint-render = "glint.render_transport:main"
+glint-verify = "glint.verify_installation:main"
+
+[project.urls]
+Homepage = "https://youngju-na.github.io/GLINT"
+Repository = "https://github.com/youngju-na/GLINT"
+Paper = "https://arxiv.org/abs/2603.26181"
+
+[tool.setuptools.packages.find]
+include = ["glint*"]

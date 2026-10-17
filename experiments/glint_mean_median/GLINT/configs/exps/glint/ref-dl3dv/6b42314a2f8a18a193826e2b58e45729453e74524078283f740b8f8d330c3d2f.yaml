@@ -1,0 +1,11 @@
+configs:
+    - configs/base.yaml
+    - configs/models/glint.yaml
+    - configs/datasets/ref-dl3dv/6b42314a2f8a18a193826e2b58e45729453e74524078283f740b8f8d330c3d2f.yaml
+
+model_cfg:
+    supervisor_cfg:
+        perc_loss_start_iter: 45000
+
+runner_cfg:
+    epochs: 120

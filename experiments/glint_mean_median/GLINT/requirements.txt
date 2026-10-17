@@ -1,0 +1,11 @@
+# Install PyTorch first; see the root README.
+torchvision==0.24.1
+numpy>=2.0,<3.0
+scipy
+lpips==0.1.4
+opencv-python
+imageio
+matplotlib
+pyyaml
+plyfile
+pytest>=8.0

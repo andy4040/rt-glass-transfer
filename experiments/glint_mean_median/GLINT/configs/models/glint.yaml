@@ -1,0 +1,131 @@
+# Default GLINT training configuration.
+runner_cfg:
+    epochs: 120
+    ep_iter: 500
+    log_interval: 10
+    visualizer_cfg:
+        types:
+            - RENDER
+            - DEPTH
+            - ALPHA
+            - NORMAL
+            - SURFACE_NORMAL
+            - SPECULAR
+            - ROUGHNESS
+            - DIFFUSE
+            - REFLECTION
+            - TRANS_REFLECTION
+            - TRANSPARENCY
+            - TRANSMISSION
+            - ENV_RENDER
+            - TRANS_ENV_RENDER
+            - TRANS_DEPTH
+            - TRANS_NORMAL
+            - OPAQUE
+            - TRANS_GUIDANCE_ANGLE
+            - TRANS_GUIDANCE_DEPTH
+            - TRANS_GUIDANCE_WEIGHT
+            - MESH
+
+model_cfg:
+    sampler_cfg:
+        xyz_lr_scheduler:
+            max_steps: 30000
+
+        # Three-stage radiance transport.
+        render_transmission_start_iter: 1000
+        render_reflection_start_iter: 3000
+        sh_deg: 3
+        sh_start_iter: 0
+        env_sh_deg: 3
+        env_sh_start_iter: 0
+
+        # Interface Gaussian refinement.
+        densify_until_iter: 21000
+        densify_grad_threshold: 0.0002
+        normal_prop_until_iter: 18000
+        min_weight_threshold: 0.1
+        pcd_freeze_enabled: false
+        pcd_freeze_iter: 31000
+
+        # Reflection and transmission Gaussian refinement.
+        env_densify_until_iter: 21000
+        env_densification_interval: 500
+        env_opacity_reset_interval: 6000
+        env_densify_grad_threshold: 0.0002
+        env_min_weight_threshold: 0.1
+        trans_env_densify_until_iter: 21000
+        trans_env_densification_interval: 500
+        trans_env_densify_grad_threshold: 0.0002
+
+        multi_view_every_n_iter: 10
+
+    supervisor_cfg:
+        # Reconstruction and geometry priors.
+        img_loss_weight: 1.2
+        ssim_loss_weight: 0.4
+        gs_norm_loss_weight: 0.1
+        gs_norm_loss_start_iter: 0
+        use_dpt_scale_gs_norm_loss: true
+        norm_loss_weight: 0.3
+        norm_loss_start_iter: 0
+        norm_loss_until_iter: null
+        dpt_loss_weight: 0.1
+        dpt_loss_start_iter: 0
+        dpt_loss_until_iter: null
+        use_dpt_scale_norm_loss: true
+        use_normal_type: diffren
+        normal_cos_threshold_iter: 10000
+        norm_smooth_loss_weight: 0.05
+        norm_smooth_loss_start_iter: 5000
+
+        # Transparency supervision and regularization.
+        trans_map_reg_loss_weight: 0.01
+        trans_reg_loss_start_iter: 7000
+        trans_guidance_loss_weight: 0.01
+        trans_guidance_loss_start_iter: 5000
+        trans_guidance_loss_until_iter: null
+        use_view_depth_aware_trans_guidance_weighting: true
+        trans_angle_soft_start_deg: 70.0
+        trans_angle_hard_cutoff_deg: 80.0
+        trans_guidance_far_depth_quantile: 1.0
+        use_opaque_explainability_trans_guidance_gating: true
+        trans_opaque_explainability_gating_start_iter: null
+        trans_opaque_explainability_patch_size: 5
+        trans_opaque_explainability_threshold: 0.02
+        trans_opaque_explainability_sharpness: 0.01
+        trans_opaque_explainability_min_weight: 0.1
+        albedo_threshold: 0.05
+        basecolor_threshold: 0.25
+        depth_discrepancy_threshold: 0.005
+
+        # Transport and cross-view losses.
+        trans_env_opacity_loss_weight: 0.01
+        trans_env_opacity_loss_start_iter: 7000
+        trans_env_opacity_loss_until_iter: 31000
+        plausibility_loss_weight: 0.05
+        plausibility_loss_start_iter: 5000
+        plausibility_loss_end_iter: null
+        multi_view_loss_weight: 0.01
+        multi_view_start_iter: 10000
+        multi_view_until_iter: 21000
+        multi_view_geo_weight: 0.03
+        multi_view_ncc_weight: 0.15
+        perc_loss_weight: 0.05
+        perc_loss_start_iter: 15000
+        perc_loss_every_n_iter: 1
+
+dataloader_cfg: &dataloader_cfg
+    dataset_cfg: &dataset_cfg
+        frame_sample: [0, null, 1]
+        use_normals: true
+        use_sky_masks: false
+        use_diffren: true
+        use_neighbors: true
+        diffren_params: [normal, depth, diffuse_albedo, basecolor]
+
+val_dataloader_cfg:
+    <<: *dataloader_cfg
+    dataset_cfg:
+        <<: *dataset_cfg
+        frame_sample: [0, null, 50]

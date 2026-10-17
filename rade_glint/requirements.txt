@@ -1,0 +1,14 @@
+# Install a GPU-compatible torch/torchvision build separately, then these.
+numpy>=1.26,<2
+Pillow>=10
+scipy
+opencv-python
+plyfile
+trimesh
+open3d
+tqdm
+matplotlib
+tensorboard
+ninja
+setuptools<81
+wheel

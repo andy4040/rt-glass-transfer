@@ -1,0 +1,9 @@
+{
+  "iterations": 30000,
+  "warmup": 6000,
+  "prior_start": 6001,
+  "checkpoint_every": 1000,
+  "patch_size": 16,
+  "ray_chunk": 16,
+  "seed": 0
+}

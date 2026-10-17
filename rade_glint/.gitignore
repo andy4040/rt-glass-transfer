@@ -1,0 +1,7 @@
+__pycache__/
+.pytest_cache/
+vendor/
+build/
+runs/
+*.pt
+*.pth

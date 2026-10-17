@@ -49,6 +49,11 @@ The pinned gsplat fork also called cudaEventCreate with a flags argument in two
 places. prepare_gsplat_5090.py changes these calls to cudaEventCreateWithFlags,
 preserving cudaEventDisableTiming. GLINT's renderer forward/backward installation
 check passed after this build fix; the pinned source revision remains recorded.
+The same compatibility script restores two GLM symlinks that Windows checked out
+as plain text files, retaining the original link text. All three RaDe extensions
+then built successfully. Training-only prior generation and normal-coordinate
+validation passed, followed by the isolated full-transport smoke test. The fresh
+GLINT teacher started on 2026-10-17 at 13:12 KST (Unix 1792210335).
 
 Server root: /workspace/experiments. Training data/teacher:
 glint_n3dv_5090. RaDe source: igs-source/submodules/RaDe-GS, copied from the same

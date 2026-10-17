@@ -1,6 +1,11 @@
 RT glass-mask transfer on synchronized N3DV
 ==========================================
 
+Current execution: the 2026-10-17 RTX 5090 restart compares RaDe versus SfM
+initialization with shared GLINT masks (RaDe first). See RESTART_5090.rst and
+INITIALIZATION_COMPARISON.rst. The mask-source comparison described below is the
+earlier design and is not an additional pair of jobs in the current queue.
+
 This experiment compares two sources of transparent-region supervision for the
 official RT-Splatting representation and renderer. It uses coffee_martini frame
 0, the same 17 training cameras at 676 x 507, and cam00 exclusively for evaluation.

@@ -2,11 +2,14 @@
 import fcntl, hashlib, json, os, subprocess, sys, time, traceback
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
-BASE=Path('/opt/experiments/glint_n3dv_static_20261014')
-RUN=ROOT/'runs/rade_vs_sfm_20261015'
+BASE=Path(os.environ.get('GLINT_BASE','/opt/experiments/glint_n3dv_static_20261014'))
+RUN=Path(os.environ.get('COMPARISON_RUN',str(ROOT/'runs/rade_vs_sfm_20261015')))
 RUN.mkdir(parents=True,exist_ok=True)
-RP=ROOT/'.venv/bin/python'; GP=BASE/'env-glint/bin/python'; IP=Path('/opt/igs-venvs/igs/bin/python')
+RP=Path(os.environ.get('RT_PYTHON',str(ROOT/'.venv/bin/python')))
+GP=Path(os.environ.get('GLINT_PYTHON',str(BASE/'env-glint/bin/python')))
+IP=Path(os.environ.get('RADE_PYTHON','/opt/igs-venvs/igs/bin/python'))
 CONFIG=json.loads((ROOT/'config.json').read_text())
+CONFIG={k:v for k,v in CONFIG.items() if k not in ('methods','diffusion_mask')}
 TEACHER=BASE/'results/glint/model/checkpoints/step_059999.pt'
 DATA=RUN/'data';MASKS=RUN/'masks';RADE=RUN/'rade'
 
@@ -23,8 +26,10 @@ def status(phase,**kw):
 def run(command,name,extra=None):
     command=list(map(str,command));print('RUN',json.dumps(command),flush=True)
     (RUN/(name+'.command.json')).write_text(json.dumps(command,indent=2))
-    env={**os.environ,'CUDA_HOME':'/usr/local/cuda-12.1','MAX_JOBS':'2','TORCH_CUDA_ARCH_LIST':'8.6',
-         'LD_LIBRARY_PATH':str(BASE/'optix-libs'),**(extra or {})}
+    env={**os.environ,'CUDA_HOME':os.environ.get('CUDA_HOME','/usr/local/cuda-12.1'),
+         'MAX_JOBS':os.environ.get('MAX_JOBS','2'),
+         'TORCH_CUDA_ARCH_LIST':os.environ.get('TORCH_CUDA_ARCH_LIST','8.6'),
+         'LD_LIBRARY_PATH':str(BASE/'optix-libs')+':'+os.environ.get('LD_LIBRARY_PATH',''),**(extra or {})}
     with (RUN/(name+'.log')).open('a') as log:
         child=subprocess.Popen(command,cwd=ROOT,stdout=log,stderr=subprocess.STDOUT,env=env)
         (RUN/'child.pid').write_text(str(child.pid))
@@ -38,11 +43,13 @@ def complete(out,step):
 def main():
     lock=(RUN/'queue.lock').open('w');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     (RUN/'queue.pid').write_text(str(os.getpid()))
-    assert sha(TEACHER)=='450796e4fe03ea3699b733f9adb97d7f5594c8f68161d975307f46378b4421e7'
+    expected=os.environ.get('TEACHER_SHA256','450796e4fe03ea3699b733f9adb97d7f5594c8f68161d975307f46378b4421e7')
+    assert sha(TEACHER)==expected, 'Teacher hash differs from the declared experiment'
     protocol=dict(order=['rade','sfm'],scene='coffee_martini',frame=0,resolution=[676,507],
         teacher=str(TEACHER),teacher_sha256=sha(TEACHER),shared_masks=True,test_camera='cam00',
         test_used_for_training_or_selection=False,rade_iterations=30000,rade_normal_start=10000,
-        rade_source='/opt/igs-source/submodules/RaDe-GS',rade_igs_commit='f4b1880c5230834e276c8f8793ffaac364210a37',
+        rade_source=os.environ.get('RADE_ROOT','/opt/igs-source/submodules/RaDe-GS'),rade_igs_commit='f4b1880c5230834e276c8f8793ffaac364210a37',
+        restart_note=os.environ.get('RESTART_NOTE','Original 20261015 teacher'),
         rt_config=CONFIG,rt_commit=subprocess.check_output(['git','-C',str(ROOT/'vendor/RT-Splatting'),'rev-parse','HEAD'],text=True).strip(),
         transfer='RaDe xyz, tangent scales, orientation, filtered occupancy; nearest original SfM RGB; no learned SH',
         caveats=['3D ellipsoid to 2D surfel conversion is not rendering-equivalent.',

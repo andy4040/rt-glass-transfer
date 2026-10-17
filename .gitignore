@@ -13,5 +13,6 @@ masks/
 *.ply
 *.splat
 installed_requirements.txt
+installed_requirements_5090.txt
 install.complete
 tests/metric_test_*/

@@ -1,0 +1,35 @@
+{
+  "scene": "coffee_martini",
+  "frame": 0,
+  "camera": "cam00",
+  "annotation_reference_size": [1352, 1014],
+  "frozen_before_training": true,
+  "purpose": "Evaluation annotations only; never supplied to model, prior estimation, losses, or hyperparameter selection",
+  "window_xyxy": [170, 448, 813, 662],
+  "glass_positive_polygons": [
+    [[176,451],[486,451],[486,657],[176,657]],
+    [[511,451],[810,451],[810,657],[511,657]]
+  ],
+  "opaque_exclusion_polygons": [
+    [[271,448],[280,448],[280,662],[271,662]],
+    [[378,448],[387,448],[387,662],[378,662]],
+    [[170,548],[813,548],[813,558],[170,558]],
+    [[605,448],[615,448],[615,662],[605,662]],
+    [[645,448],[749,448],[750,472],[739,495],[759,520],[776,558],[781,596],[780,662],[508,662],[490,643],[494,618],[516,576],[548,541],[588,510],[629,494],[647,472]],
+    [[160,619],[173,611],[186,611],[199,628],[202,662],[160,662]],
+    [[790,599],[805,599],[813,616],[813,662],[786,662]]
+  ],
+  "boundary_ignore_radius_at_eval_resolution": 2,
+  "behind_glass_detail_crops": [
+    {"name":"exterior_window_upper", "xyxy":[180,454,264,543]},
+    {"name":"exterior_siding", "xyxy":[284,456,374,544]},
+    {"name":"exterior_windows_lower", "xyxy":[284,562,374,650]},
+    {"name":"exterior_detail_right_pane", "xyxy":[392,562,480,650]}
+  ],
+  "notes": [
+    "Manual visible-glass annotation, not ground-truth metric geometry or exact optical material labels.",
+    "Detection is scored inside the fixed rear-window ROI; the separate bright right-side window is outside this annotation scope.",
+    "Glass-mask boundaries are excluded from detection scoring to reduce manual annotation uncertainty.",
+    "Detail crops exclude the reconstructed room's foreground window bars and person as far as possible; exterior structure visible through glass is the appearance target."
+  ]
+}

@@ -40,6 +40,11 @@ compatibility adaptation for the combined legacy RT/RaDe/prior environment;
 GLINT metadata requests NumPy >=2, so GLINT installs with --no-deps. CUDA and
 transport checks gate training; dependency installation alone is not validation.
 No renderer/loss substitution is made to bypass an unsupported CUDA extension.
+CUDA 12.8 compilation required explicit standard headers: cfloat for simple-knn
+FLT_MAX, and cstdint for RT/RaDe rasterizer integer types. The idempotent
+scripts/patch_cuda_headers.py applies only these declarations; algorithms and
+losses are unchanged. The RT CUDA extensions and basic 5090 tensor operation
+passed installation; full transport checks remain a separate pipeline gate.
 
 Server root: /workspace/experiments. Training data/teacher:
 glint_n3dv_5090. RaDe source: igs-source/submodules/RaDe-GS, copied from the same

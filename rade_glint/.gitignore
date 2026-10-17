@@ -5,3 +5,16 @@ build/
 runs/
 *.pt
 *.pth
+hf-cache/
+pipeline/
+coffee_frame0/
+prior_inputs/
+prior_outputs/
+priors/
+diffrens/
+*.log
+*.complete
+prior_mapping.json
+prior_runtime.json
+prior_coordinate_verification.json
+prior_png_hashes.json

@@ -80,4 +80,36 @@ feature gradients isolated from geometry, transmission gradients, and checkpoint
 render parity. Peak allocated memory was 25,084,416 bytes for ONLY nine synthetic
 Gaussians at 32x32; this cannot estimate full-scene memory or throughput.
 Recovered local coffee_frame0.tar.gz supplies synchronized images/calibration;
-fresh train-only triangulation is running. Prior inference remains to be set up.
+Fresh train-only triangulation completed. This is a validation snapshot, not
+a live training-status report.
+
+Automatic prior and training pipeline
+------------------------------------
+run_pipeline.py runs under the rade-glint-pipeline Supervisor service configured
+by pipeline.conf. It requires gpu_setup.complete and triangulation.complete.
+The stages are dependency installation, train-only input preparation, pinned
+weight downloads, DiffusionRenderer inference, normal-coordinate verification,
+prior packaging, a three-step dataset smoke test, and fresh 30,000-step training.
+Every successful stage writes a completion marker in pipeline/. A failure
+records the error in pipeline/status.json and prevents later stages, including
+training. Partial training is never silently overwritten or restarted.
+
+prepare_joint_inputs.py creates centered PINHOLE inputs at 676x507 from fixed
+calibration and orders the 17 training views by camera proximity for prior
+inference. All images are frame zero; cam00 RGB is excluded. No GLINT teacher
+is trained. verify_prior_coordinates.py checks normal axis signs using only
+training-camera SfM tracks and planar neighborhoods before packaging priors.
+
+infer_priors_lowmem.py runs the pinned official DiffusionRenderer entrypoint
+with CPU model offload, UNet forward chunking, one-image VAE encoding and
+decode_chunk_size=1. The 24-frame input is padded by repeating the last training
+view; inference uses 512x384, 20 steps, seed 0, and four passes: normal, depth,
+diffuse albedo and basecolor. A one-frame temporal decode changes context and
+is not claimed bit-identical to the default decoder. Source hash and memory
+adaptations are recorded in prior_runtime.json. These changes target RTX 3080
+10GB, but full-scene performance and quality still require validation.
+
+Supervisor keeps the pipeline alive after SSH disconnect. It does not create
+or destroy GPU instances. Model weights, inputs, priors, logs, status and
+training checkpoints are excluded from Git; this repository is a code snapshot,
+not an experiment-data backup.

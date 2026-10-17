@@ -66,8 +66,9 @@ def main():
         time.sleep(15)
     run('cpu_protocol_tests', [PY,'-m','pytest','tests','-q'])
     run('install_glint_python', [PY,'-m','pip','install','--no-deps','-e',BASE/'GLINT'])
+    run('prepare_gsplat_source', [PY,ROOT/'scripts/prepare_gsplat_5090.py'])
     run('install_gsplat', [PY,'-m','pip','install','--no-build-isolation',
-        'git+https://github.com/youngju-na/gsplat.git@83a0dcd3f850cccdc7b92b50fd6a568e3260eae1'],
+        '/workspace/experiments/gsplat-glint-pinned'],
         extra={'BUILD_2DGS':'1','NUM_CHANNELS':'3,4,6,7','BUILD_EXPERIMENTAL':'0'})
     run('install_optix', [PY,'-m','glint.install_optix','--cuda-home',ENV['CUDA_HOME'],'--jobs','4'])
     run('verify_glint_cuda', [PY,'-m','glint.verify_installation'])

@@ -45,6 +45,10 @@ FLT_MAX, and cstdint for RT/RaDe rasterizer integer types. The idempotent
 scripts/patch_cuda_headers.py applies only these declarations; algorithms and
 losses are unchanged. The RT CUDA extensions and basic 5090 tensor operation
 passed installation; full transport checks remain a separate pipeline gate.
+The pinned gsplat fork also called cudaEventCreate with a flags argument in two
+places. prepare_gsplat_5090.py changes these calls to cudaEventCreateWithFlags,
+preserving cudaEventDisableTiming. GLINT's renderer forward/backward installation
+check passed after this build fix; the pinned source revision remains recorded.
 
 Server root: /workspace/experiments. Training data/teacher:
 glint_n3dv_5090. RaDe source: igs-source/submodules/RaDe-GS, copied from the same

@@ -100,6 +100,60 @@ def localization_metrics(probability: np.ndarray, target: np.ndarray, valid: np.
             "scored_pixels": int(valid.sum()), "positive_reference_pixels": int((target & valid).sum())}
 
 
+def material_localization_diagnostic(surface_opacity: np.ndarray, surface_alpha: np.ndarray,
+                                     target: np.ndarray, valid: np.ndarray,
+                                     min_coverage: float = 0.7) -> tuple[dict, dict]:
+    """Separate alpha-weighted material opacity from missing surface coverage.
+
+    The 0.7 coverage and 0.5 material thresholds are fixed protocol constants,
+    declared before the RT arms run, not selected using held-out images/scores.
+    Low-coverage pixels stay in the original annotation denominator. They cannot
+    be predicted as glass, so unobserved reference glass counts as false negatives.
+    This is a coverage-aware diagnostic, not calibrated glass probabilities.
+    """
+    opacity = np.asarray(surface_opacity, dtype=np.float64)
+    alpha = np.asarray(surface_alpha, dtype=np.float64)
+    target, valid = np.asarray(target, dtype=bool), np.asarray(valid, dtype=bool)
+    if opacity.shape != alpha.shape or alpha.shape != target.shape or target.shape != valid.shape:
+        raise ValueError("Opacity, coverage, reference and scoring mask must have equal shapes")
+    if not 0 < min_coverage <= 1:
+        raise ValueError("Coverage threshold must lie in (0,1]")
+    if not np.isfinite(opacity).all() or not np.isfinite(alpha).all():
+        raise ValueError("Nonfinite opacity or coverage")
+    if np.any((alpha < -1e-5) | (alpha > 1 + 1e-5)):
+        raise ValueError("Surface coverage must lie in [0,1]")
+    alpha = alpha.clip(0, 1)
+    hit = alpha > 1e-6
+    # Unobserved pixels have no material estimate. Store zero transparency for
+    # display only; the coverage mask and no-hit counts preserve that distinction.
+    conditional_opacity = np.ones_like(opacity)
+    np.divide(opacity, alpha, out=conditional_opacity, where=hit)
+    material_score = 1 - conditional_opacity.clip(0, 1)
+    covered = alpha >= min_coverage
+    prediction = covered & (material_score >= 0.5)
+    result = localization_metrics(prediction.astype(np.float32), target, valid)
+    scored = int(valid.sum())
+    no_hit_count = int((valid & ~hit).sum())
+    low_count = int((valid & ~covered).sum())
+    result.update(
+        source="1 - surface_opacity / surface_alpha, with fixed coverage gate",
+        kind="coverage-aware material diagnostic; not calibrated glass probability",
+        material_threshold=0.5, coverage_threshold=min_coverage,
+        no_hit_threshold=1e-6,
+        prediction_rule="surface_alpha >= 0.7 AND conditional transparency >= 0.5"
+                        if min_coverage == 0.7 else
+                        f"surface_alpha >= {min_coverage} AND conditional transparency >= 0.5",
+        scoring_scope="All originally valid annotated pixels; no coverage-based exclusion",
+        no_hit_pixels=no_hit_count, no_hit_fraction=no_hit_count / max(scored, 1),
+        low_coverage_pixels=low_count, low_coverage_fraction=low_count / max(scored, 1),
+        low_coverage_includes_no_hit=True,
+        reference_glass_low_coverage_pixels=int((valid & target & ~covered).sum()),
+        caveat="Low-coverage reference glass is a false negative; low-coverage opaque reference can be a true negative, so report coverage alongside IoU.",
+    )
+    return result, {"conditional_transparency": material_score,
+                    "sufficient_coverage": covered, "prediction": prediction}
+
+
 def read_namespace(path: Path) -> dict:
     """Parse upstream's Namespace(...) cfg_args without executing its contents."""
     expression = ast.parse(path.read_text(encoding="utf-8"), mode="eval").body
@@ -296,16 +350,24 @@ def main() -> None:
     metrics = {"full": image_metrics(predicted, gt, perceptual, torch),
                "window": image_metrics(crop(predicted, roi), crop(gt, roi), perceptual, torch)}
     # Optical opacity and material transmissivity are different RT attributes.
-    # A fixed threshold of 1 - surface_opacity is the semantic glass proxy.
-    glass_probability = np.clip(1 - result["surface_opacity"].detach().float().cpu().numpy().squeeze(), 0, 1)
+    # Preserve the upstream raw proxy for comparison, but it conflates missing
+    # geometric coverage with transparency. Report a separate material diagnostic.
+    surface_opacity = result["surface_opacity"].detach().float().cpu().numpy().squeeze()
+    surface_alpha = result["surface_alpha"].detach().float().cpu().numpy().squeeze()
+    glass_probability = np.clip(1 - surface_opacity, 0, 1)
     localization = None
+    material_localization = material_maps = None
     glass_reference = glass_valid = None
     if "glass_positive_polygons" in annotation:
         glass_reference, glass_valid = glass_annotation(annotation, width, height)
         localization = localization_metrics(glass_probability, glass_reference, glass_valid)
         localization.update(source="1 - surface_opacity", scope="fixed annotated window only; ignored boundaries excluded",
+                            kind="raw upstream opacity-complement proxy; confounded by geometric coverage",
+                            caveat="An uncovered ray has proxy transparency 1; this is not a material-only glass score.",
                             annotation_kind="manual visible-glass segmentation, not exact optical material or depth ground truth",
                             boundary_ignore_radius=int(annotation.get("boundary_ignore_radius_at_eval_resolution", 0)))
+        material_localization, material_maps = material_localization_diagnostic(
+            surface_opacity, surface_alpha, glass_reference, glass_valid)
         mask = glass_reference & glass_valid
         metrics["visible_glass_mask_psnr"] = psnr(predicted[mask], gt[mask]) if mask.any() else None
     import cv2
@@ -343,6 +405,10 @@ def main() -> None:
     Image.fromarray(np.rint(glass_probability * 255).astype(np.uint8)).save(output / "glass_probability_opacity_complement.png")
     np.save(output / "glass_probability_opacity_complement.npy", glass_probability)
     if glass_reference is not None:
+        for name, value in material_maps.items():
+            stem = f"glass_material_diagnostic_{name}"
+            np.save(output / f"{stem}.npy", value)
+            Image.fromarray(np.rint(np.clip(value, 0, 1) * 255).astype(np.uint8)).save(output / f"{stem}.png")
         for name, value in (("glass_prediction", glass_probability >= 0.5),
                             ("glass_reference", glass_reference), ("glass_scoring_valid", glass_valid)):
             np.save(output / f"{name}.npy", value)
@@ -365,7 +431,9 @@ def main() -> None:
         save_rgb(f"{key}.png", result[key].detach().float().permute(1, 2, 0).cpu().numpy())
     record = {"camera": "cam00", "frame": int(args.frame), "iteration": iteration,
               "width": width, "height": height, "window_xyxy": roi, "metrics": metrics,
-              "glass_localization": localization, "behind_glass_details": behind_details,
+              "glass_localization": localization,
+              "glass_localization_material_diagnostic": material_localization,
+              "behind_glass_details": behind_details,
               "render_seconds_synchronized_including_readback": render_seconds,
               "gaussian_count": int(model.get_xyz.shape[0]), "render_key": "final_rendering",
               "model_dir": str(model_dir), "artifacts": {p.name: sha256(p) for p in folder.iterdir() if p.name in ("point_cloud.ply", "light_mlp.pt", "dir_encoding.pt")},
@@ -374,7 +442,8 @@ def main() -> None:
               "metric_protocol": {"psnr": "float64 MSE on full image or cropped ROI, no outside zeros; maximum 120 dB",
                                   "ssim": "RGB mean, 11x11 Gaussian sigma=1.5, zero padding, float32; same as GLINT score_results.py",
                                   "lpips": f"lpips {args.lpips_net}, normalize=True ([0,1] to [-1,1]), crop before evaluation",
-                                  "glass_localization": "1-surface_opacity >=0.5; fixed window and manual polygons; boundaries excluded; not material transmissivity",
+                                  "glass_localization": "Raw upstream proxy: 1-surface_opacity >=0.5; includes coverage effects; not material-only glass detection",
+                                  "glass_localization_material_diagnostic": "surface_alpha >=0.7 AND 1-surface_opacity/surface_alpha >=0.5; same full annotation denominator; low coverage remains scored; coverage fractions reported",
                                   "behind_glass_details": "fixed crops: PSNR, zero-padded SSIM, RGB 3x3 Sobel gradient MAE; no LPIPS on small crops"},
               "caveats": ["No 3D geometry ground truth; image scores do not establish correct glass depth.",
                           "Independent metrics intentionally avoid upstream zero-padded window PSNR.",

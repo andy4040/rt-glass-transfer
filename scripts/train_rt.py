@@ -7,6 +7,9 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1];UP=ROOT/'vendor/RT-Splatting'
 os.environ['PATH']=str(Path(sys.executable).parent)+os.pathsep+os.environ.get('PATH','')
 sys.path.insert(0,str(UP));sys.path.insert(0,str(ROOT/'scripts'))
+from rt_source_guard import patch_training_source, reject_checkpoint_resume
+reject_checkpoint_resume(sys.argv[1:])
+source=patch_training_source((UP/'train.py').read_text(encoding='utf-8'))
 import numpy as np
 import torch
 from PIL import Image
@@ -42,20 +45,6 @@ def initial_hash(model,path):
                 modules.update((key+name).encode());modules.update(t.detach().cpu().numpy().tobytes())
     Path(path,'initial_sha256.txt').write_text(h.hexdigest())
     Path(path,'shared_modules_sha256.txt').write_text(modules.hexdigest())
-source=(UP/'train.py').read_text()
-start=source.index('        if opt.mask_loss_weight > 0 and iteration >= opt.mask_loss_from_iter:')
-end=source.index('        total_loss = loss',start)
-source=source[:start]+'''        terms = mask_terms(surface_opacity, transmissivity, render_scat, gt_transparent_mask, viewpoint_cam.mask_valid.cuda(), opt, iteration)
-        for name, term in terms.items():
-            loss += term
-            loss_dict[name] = float(term.detach())
-
-'''+source[end:]
-source=source.replace('data_idx = np.random.randint(len(viewpoint_stack))','data_idx = int(view_rng.integers(len(viewpoint_stack)))')
-source=source.replace('    gaussians.training_setup(opt)','    gaussians.training_setup(opt)\n    initial_hash(gaussians, dataset.model_path)',1)
-source=source.replace('            iter_end.synchronize()','            iter_end.synchronize()\n            record(gaussians, iteration, total_loss, dataset.model_path)',1)
-# Built-in masked-PSNR and train-view reporting are not used as held-out evaluation.
-source=source.replace('            training_report(tb_writer, tb_executor, opt, iteration, loss, loss_dict, iter_start.elapsed_time(iter_end), testing_iterations, scene, partial(render, pipe=pipe, bg_color=bg))','            pass  # independent cam00 evaluator runs outside training')
 module=types.ModuleType('__main__');module.__file__=str(UP/'train.py')
 module.__dict__.update(mask_terms=mask_terms,view_rng=view_rng,record=record,initial_hash=initial_hash)
 sys.modules['__main__']=module

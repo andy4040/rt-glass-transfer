@@ -18,8 +18,10 @@ from PIL import Image
 
 try:
     from .export_masks import check_train_names
+    from .experiment_provenance import require_copied_masks, require_teacher
 except ImportError:
     from export_masks import check_train_names
+    from experiment_provenance import require_copied_masks, require_teacher
 
 
 def read_colmap_text(sparse):
@@ -67,7 +69,7 @@ def read_colmap_text(sparse):
     return cameras, images
 
 
-def validate_inputs(source, masks):
+def validate_inputs(source, masks, *, expected_teacher_sha256=None, require_packaged_masks=False):
     sparse = source / "sparse" / "0"
     cameras, images = read_colmap_text(sparse)
     names = {row["camera"] for row in images}
@@ -79,6 +81,8 @@ def validate_inputs(source, masks):
         if actual != names:
             raise ValueError(f"{directory} inventory differs from training cameras")
     manifest = json.loads((masks / "manifest.json").read_text())
+    if expected_teacher_sha256 is not None:
+        require_teacher(manifest, expected_teacher_sha256)
     if set(manifest["train_cameras"]) != names or manifest.get("held_out_used") is not False:
         raise ValueError("Mask provenance does not establish train-only generation")
     for row in images:
@@ -100,6 +104,8 @@ def validate_inputs(source, masks):
     for name in ("points3D.ply", "points3D.txt"):
         if not (sparse / name).is_file():
             raise FileNotFoundError(sparse / name)
+    if require_packaged_masks:
+        require_copied_masks(source, masks)
     return cameras, images, manifest
 
 
